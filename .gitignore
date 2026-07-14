@@ -1,0 +1,11 @@
+# Arduino IDE build files and temp files
+build/
+*.bin
+*.elf
+*.hex
+*.map
+.vscode/
+.pio/
+*.DS_Store
+*.swp
+*~
