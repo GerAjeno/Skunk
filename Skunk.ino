@@ -1,14 +1,14 @@
 /**
  * ============================================================================
- * PROYECTO SKUNK - ESP32-S3 USB Host Print Server para Zebra GC420t
- * Compatible 100% con Arduino IDE
+ * PROYECTO SKUNK v2.0 Industrial - ESP32-S3 (16MB) USB Host Print Server
+ * para Impresoras Zebra GC420t - Compatible 100% con Arduino IDE
  * ============================================================================
  * 
- * Funcionalidades principales:
- * 1. Controlador USB OTG Host en pines D+ y D- para comunicarse con la Zebra GC420t.
- * 2. Servidor TCP RAW en puerto 9100 (Estándar JetDirect / AppSocket / Zebra Plugin Android).
- * 3. Servidor Web HTTP en puerto 80 con Consola de Diagnóstico y registro de LOGS circular en vivo.
- * 4. Gestión de Wi-Fi con soporte para IP estática o DHCP y auto-reconexión.
+ * Funcionalidades y Mejoras implementadas (v2.0):
+ * 1. Lectura bidireccional ZPL (~HS Host Status) al puerto USB para detectar Falta de Papel y alertas.
+ * 2. Portal Cautivo Wi-Fi con memoria NVS EEPROM (No requiere reprogramar para cambiar clave/red).
+ * 3. Micro-Cola de Impresión (Spooler en RAM/PSRAM) con seguro anticolisión ante múltiples celulares.
+ * 4. Alertas IoT (Telegram SSL/TLS) e Indicadores Visuales en tiempo real con LED RGB Neopixel WS2812.
  */
 
 #include <Arduino.h>
@@ -17,85 +17,69 @@
 
 #include "Config.h"
 #include "Logger.h"
+#include "StatusIndicators.h"
+#include "NotificationManager.h"
+#include "WiFiManagerSkunk.h"
 #include "UsbPrinterHost.h"
+#include "PrintSpooler.h"
 #include "RawTcpServer.h"
 #include "WebConsole.h"
 
 unsigned long lastWifiCheck = 0;
 
-void setupWifi() {
-    Logger::log("WIFI", "Conectando a la red Wi-Fi: " + String(WIFI_SSID));
-
-    if (USE_STATIC_IP) {
-        if (!WiFi.config(LOCAL_IP, GATEWAY, SUBNET, DNS1, DNS2)) {
-            Logger::log("WIFI", "ADVERTENCIA: Falló la configuración de IP estática.");
-        } else {
-            Logger::log("WIFI", "Configuración IP Estática aplicada: " + LOCAL_IP.toString());
-        }
-    }
-
-    WiFi.mode(WIFI_STA);
-    WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
-
-    int attempts = 0;
-    while (WiFi.status() != WL_CONNECTED && attempts < 30) {
-        delay(500);
-        Serial.print(".");
-        attempts++;
-    }
-    Serial.println();
-
-    if (WiFi.status() == WL_CONNECTED) {
-        Logger::log("WIFI", "¡Conectado exitosamente! IP asignada: " + WiFi.localIP().toString());
-        Logger::logf("WIFI", "Señal RSSI: %d dBm", WiFi.RSSI());
-
-        // Iniciar anuncio mDNS para facilitar descubrimiento en red
-        if (MDNS.begin(DEVICE_HOSTNAME)) {
-            MDNS.addService("http", "tcp", WEB_CONSOLE_PORT);
-            MDNS.addService("pdl-datastream", "tcp", RAW_PRINT_PORT);
-            Logger::log("MDNS", "Servicio mDNS activo: http://" + String(DEVICE_HOSTNAME) + ".local/");
-        }
-    } else {
-        Logger::log("WIFI", "ERROR: No se pudo conectar al Wi-Fi. Reintentando en bucle principal...");
-    }
-}
-
 void setup() {
     Serial.begin(115200);
     delay(1000);
 
-    // 1. Inicializar sistema de logs en RAM para el panel web
+    // 1. Inicializar indicadores visuales y sonoros (LED RGB WS2812 / Buzzer)
+    StatusIndicators::init();
+
+    // 2. Inicializar sistema de bitácora en RAM para la Consola Web
     Logger::init();
-    Logger::log("BOOT", "==================================================================");
-    Logger::log("BOOT", "Iniciando Proyecto SKUNK - ESP32-S3 Zebra GC420t PrintServer v1.0");
-    Logger::log("BOOT", "==================================================================");
+    Logger::log("BOOT", "========================================================================");
+    Logger::log("BOOT", "Iniciando PROYECTO SKUNK v2.0 Industrial - ESP32-S3 (16MB) PrintServer");
+    Logger::log("BOOT", "========================================================================");
 
-    // 2. Conectar a red Wi-Fi
-    setupWifi();
+    // 3. Inicializar gestor de notificaciones IoT (Telegram SSL/TLS)
+    NotificationManager::init();
 
-    // 3. Inicializar USB Host (Pines D+ y D- hacia el puerto USB de la impresora)
+    // 4. Inicializar Wi-Fi y Portal Cautivo NVS
+    WiFiManagerSkunk::init();
+
+    // 5. Inicializar Controlador USB Host OTG y consulta bidireccional (~HS ZPL)
     UsbPrinterHost::init();
 
-    // 4. Inicializar Servidor TCP RAW en puerto 9100 (Para Zebra Print Service Plugin)
+    // 6. Inicializar Spooler de Impresión en RAM/PSRAM para gestión anticolisión
+    PrintSpooler::init();
+
+    // 7. Inicializar Servidor TCP RAW en puerto 9100 (Redirigiendo al Spooler)
     RawTcpServer::init();
 
-    // 5. Inicializar Servidor Web de Diagnóstico y Logs en puerto 80
+    // 8. Inicializar Servidor Web de Diagnóstico Industrial en puerto 80
     WebConsole::init();
 
-    Logger::log("BOOT", "¡Proyecto Skunk completamente operativo y listo para imprimir!");
+    Logger::log("BOOT", "✅ ¡Proyecto Skunk v2.0 operativo y supervisando en todos los canales!");
 }
 
 void loop() {
-    // Manejar peticiones HTTP de la Consola Web de Diagnóstico
+    // 1. Procesar Portal Cautivo (DNS y WebServer en modo AP) si se activó la reconfiguración
+    WiFiManagerSkunk::loop();
+
+    // 2. Manejar peticiones HTTP del Panel Web de Diagnóstico
     WebConsole::handleClient();
 
-    // Verificar el estado de la conexión Wi-Fi periódicamente (cada 15 segundos)
-    if (millis() - lastWifiCheck > 15000) {
-        lastWifiCheck = millis();
-        if (WiFi.status() != WL_CONNECTED) {
-            Logger::log("WIFI", "ALERTA: Desconexión Wi-Fi detectada. Intentando reconectar...");
-            WiFi.disconnect();
-            WiFi.reconnect();
+    // 3. Actualizar animaciones visuales (parpadeos de alertas Neopixel en caso de falta de papel)
+    StatusIndicators::loop();
+
+    // 4. Supervisión y auto-reconexión Wi-Fi si estamos en modo Estación (STA)
+    if (!WiFiManagerSkunk::getIsApMode()) {
+        if (millis() - lastWifiCheck > 15000) {
+            lastWifiCheck = millis();
+            if (WiFi.status() != WL_CONNECTED) {
+                Logger::log("WIFI", "⚠️ ALERTA: Desconexión temporal detectada en red local. Intentando reconectar...");
+                WiFi.disconnect();
+                WiFi.reconnect();
+            }
         }
     }
 

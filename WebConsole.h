@@ -6,6 +6,9 @@
 #include "Config.h"
 #include "Logger.h"
 #include "UsbPrinterHost.h"
+#include "PrintSpooler.h"
+#include "WiFiManagerSkunk.h"
+#include "NotificationManager.h"
 
 class WebConsole {
 private:
@@ -18,7 +21,7 @@ private:
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Skunk Print Server - Consola de Diagnóstico</title>
+    <title>Skunk Industrial v2.0 - Consola de Diagnóstico</title>
     <style>
         :root {
             --bg-color: #0f172a;
@@ -27,74 +30,82 @@ private:
             --accent-color: #3b82f6;
             --success-color: #10b981;
             --danger-color: #ef4444;
+            --warning-color: #f59e0b;
             --border-color: #334155;
             --log-bg: #0b0f19;
         }
         * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', system-ui, -apple-system, sans-serif; }
         body { background-color: var(--bg-color); color: var(--text-color); padding: 20px; line-height: 1.5; }
-        .container { max-width: 1100px; margin: 0 auto; }
+        .container { max-width: 1150px; margin: 0 auto; }
         header { display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid var(--border-color); padding-bottom: 15px; margin-bottom: 25px; }
         h1 { font-size: 1.6rem; color: var(--accent-color); display: flex; align-items: center; gap: 10px; }
-        .status-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 15px; margin-bottom: 25px; }
+        .status-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 15px; margin-bottom: 25px; }
         .card { background-color: var(--card-bg); border: 1px solid var(--border-color); border-radius: 10px; padding: 18px; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.3); }
         .card h3 { font-size: 0.85rem; text-transform: uppercase; letter-spacing: 0.05em; color: #94a3b8; margin-bottom: 8px; }
-        .card .value { font-size: 1.4rem; font-weight: 700; }
+        .card .value { font-size: 1.3rem; font-weight: 700; }
         .badge { display: inline-block; padding: 4px 10px; border-radius: 9999px; font-size: 0.8rem; font-weight: 600; }
         .badge.online { background-color: rgba(16, 185, 129, 0.2); color: var(--success-color); border: 1px solid var(--success-color); }
         .badge.offline { background-color: rgba(239, 68, 68, 0.2); color: var(--danger-color); border: 1px solid var(--danger-color); }
+        .badge.warning { background-color: rgba(245, 158, 11, 0.2); color: var(--warning-color); border: 1px solid var(--warning-color); }
         .actions { display: flex; gap: 12px; margin-bottom: 25px; flex-wrap: wrap; }
-        button { background-color: var(--accent-color); color: white; border: none; padding: 12px 20px; border-radius: 8px; font-weight: 600; cursor: pointer; transition: background 0.2s, transform 0.1s; display: flex; align-items: center; gap: 8px; }
+        button { background-color: var(--accent-color); color: white; border: none; padding: 12px 18px; border-radius: 8px; font-weight: 600; cursor: pointer; transition: background 0.2s, transform 0.1s; display: flex; align-items: center; gap: 8px; font-size: 0.9rem; }
         button:hover { background-color: #2563eb; }
         button:active { transform: scale(0.98); }
         button.test-btn { background-color: var(--success-color); }
         button.test-btn:hover { background-color: #059669; }
+        button.alert-btn { background-color: var(--warning-color); color: #0f172a; }
+        button.alert-btn:hover { background-color: #d97706; color: white; }
+        button.danger-btn { background-color: var(--danger-color); }
+        button.danger-btn:hover { background-color: #dc2626; }
         .log-section { background-color: var(--card-bg); border: 1px solid var(--border-color); border-radius: 10px; padding: 20px; }
         .log-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
-        pre#logbox { background-color: var(--log-bg); color: #38bdf8; padding: 15px; border-radius: 8px; font-family: 'Consolas', 'Monaco', monospace; font-size: 0.9rem; height: 380px; overflow-y: auto; white-space: pre-wrap; word-break: break-all; border: 1px solid #1e293b; }
+        pre#logbox { background-color: var(--log-bg); color: #38bdf8; padding: 15px; border-radius: 8px; font-family: 'Consolas', 'Monaco', monospace; font-size: 0.88rem; height: 380px; overflow-y: auto; white-space: pre-wrap; word-break: break-all; border: 1px solid #1e293b; }
         .footer { text-align: center; margin-top: 30px; font-size: 0.8rem; color: #64748b; }
     </style>
 </head>
 <body>
     <div class="container">
         <header>
-            <h1>🦨 Skunk - Zebra GC420t PrintServer (ESP32-S3)</h1>
+            <h1>🦨 Skunk v2.0 - Zebra GC420t PrintServer & Spooler RAM</h1>
             <div id="connection-status"><span class="badge online">🔴 En vivo</span></div>
         </header>
 
         <div class="status-grid">
             <div class="card">
-                <h3>Estado Impresora USB</h3>
-                <div class="value" id="usb-status">Consultando...</div>
+                <h3>Estado Impresora USB (~HS)</h3>
+                <div class="value" id="usb-detailed">Consultando...</div>
             </div>
             <div class="card">
-                <h3>Puerto TCP RAW (JetDirect)</h3>
-                <div class="value" style="color: var(--success-color);">Puerto 9100</div>
+                <h3>Spooler RAM / PSRAM</h3>
+                <div class="value" id="spooler-status">0 en cola</div>
             </div>
             <div class="card">
-                <h3>Trabajos Recibidos</h3>
+                <h3>Trabajos Procesados</h3>
                 <div class="value" id="print-jobs">0</div>
             </div>
             <div class="card">
-                <h3>Tráfico Total (RX / TX)</h3>
+                <h3>Tráfico Red (RX / TX)</h3>
                 <div class="value" id="network-traffic">0 B / 0 B</div>
             </div>
         </div>
 
         <div class="actions">
-            <button class="test-btn" onclick="sendTestPrint()">⚡ Enviar Etiqueta ZPL de Prueba al USB</button>
-            <button onclick="fetchStatus()">🔄 Actualizar Estado</button>
+            <button class="test-btn" onclick="sendTestPrint()">⚡ Enviar Etiqueta ZPL al Spooler</button>
+            <button class="alert-btn" onclick="togglePaperOutAlert()">🚨 Simular Alerta Falta de Papel (~HS)</button>
+            <button onclick="testTelegram()">💬 Probar Alerta Telegram</button>
+            <button class="danger-btn" onclick="resetWifi()">📡 Reconfigurar Red / Portal AP</button>
         </div>
 
         <div class="log-section">
             <div class="log-header">
-                <h3>📜 Logs del Sistema en Tiempo Real (Depuración)</h3>
-                <span style="font-size: 0.8rem; color: #94a3b8;">Auto-actualización cada 2s</span>
+                <h3>📜 Bitácora del Sistema y Depuración Industrial</h3>
+                <span style="font-size: 0.8rem; color: #94a3b8;">Refresco automático cada 2s</span>
             </div>
-            <pre id="logbox">Cargando registros...</pre>
+            <pre id="logbox">Cargando bitácora...</pre>
         </div>
 
         <div class="footer">
-            Proyecto Skunk • Firmware ESP32-S3 USB Host • Compatible con Zebra Print Service Plugin & Arduino IDE
+            Proyecto Skunk v2.0 • Firmware ESP32-S3 16MB • Spooler Anticolisión + Alertas IoT Telegram + LED RGB
         </div>
     </div>
 
@@ -103,12 +114,18 @@ private:
             fetch('/api/status')
                 .then(r => r.json())
                 .then(data => {
-                    const usbDiv = document.getElementById('usb-status');
-                    if (data.usbConnected) {
-                        usbDiv.innerHTML = `<span class="badge online">Conectada</span> <span style="font-size:0.85rem; color:#94a3b8;">${data.printerInfo}</span>`;
+                    const usbDiv = document.getElementById('usb-detailed');
+                    if (data.paperOut) {
+                        usbDiv.innerHTML = `<span class="badge offline">⚠️ FALTA PAPEL</span> <div style="font-size:0.8rem;margin-top:4px;color:#cbd5e1;">${data.printerInfo}</div>`;
+                    } else if (data.usbConnected) {
+                        usbDiv.innerHTML = `<span class="badge online">✅ Lista para Imprimir</span> <div style="font-size:0.8rem;margin-top:4px;color:#cbd5e1;">${data.printerInfo}</div>`;
                     } else {
-                        usbDiv.innerHTML = `<span class="badge offline">Desconectada</span>`;
+                        usbDiv.innerHTML = `<span class="badge offline">❌ Desconectada</span>`;
                     }
+
+                    const spoolerText = `${data.spoolerPending} en cola (${data.spoolerEnqueued} total)`;
+                    document.getElementById('spooler-status').innerHTML = data.spoolerPending > 0 ? `<span class="badge warning">${spoolerText}</span>` : `<span style="color:#10b981;">0 en espera</span>`;
+                    
                     document.getElementById('print-jobs').innerText = data.jobs;
                     document.getElementById('network-traffic').innerText = formatBytes(data.rx) + ' / ' + formatBytes(data.tx);
                 })
@@ -129,11 +146,31 @@ private:
         }
 
         function sendTestPrint() {
-            if (confirm("¿Deseas enviar una etiqueta de prueba ZPL nativa a la impresora USB?")) {
-                fetch('/api/testprint', { method: 'POST' })
-                    .then(r => r.text())
-                    .then(msg => alert("Resultado: " + msg))
-                    .catch(e => alert("Error en envío: " + e));
+            fetch('/api/testprint', { method: 'POST' })
+                .then(r => r.text())
+                .then(msg => alert(msg))
+                .catch(e => alert("Error: " + e));
+        }
+
+        function togglePaperOutAlert() {
+            fetch('/api/togglealert', { method: 'POST' })
+                .then(r => r.text())
+                .then(msg => alert("Estado modificado: " + msg))
+                .catch(e => alert("Error: " + e));
+        }
+
+        function testTelegram() {
+            fetch('/api/testtelegram', { method: 'POST' })
+                .then(r => r.text())
+                .then(msg => alert("Notificación: " + msg))
+                .catch(e => alert("Error: " + e));
+        }
+
+        function resetWifi() {
+            if (confirm("¿Seguro que deseas borrar las credenciales Wi-Fi de NVS y abrir el Portal Cautivo Skunk?")) {
+                fetch('/api/resetwifi', { method: 'POST' })
+                    .then(() => alert("El ESP32 se reiniciará en modo AP: 'Skunk-Setup-Zebra'"))
+                    .catch(e => alert("Error: " + e));
             }
         }
 
@@ -165,7 +202,10 @@ public:
         server->on("/api/status", HTTP_GET, []() {
             String json = "{";
             json += "\"usbConnected\":" + String(UsbPrinterHost::getIsConnected() ? "true" : "false") + ",";
-            json += "\"printerInfo\":\"" + UsbPrinterHost::getPrinterInfo() + "\",";
+            json += "\"paperOut\":" + String(UsbPrinterHost::getIsPaperOut() ? "true" : "false") + ",";
+            json += "\"printerInfo\":\"" + UsbPrinterHost::getDetailedStatusString() + "\",";
+            json += "\"spoolerPending\":" + String(PrintSpooler::getPendingJobCount()) + ",";
+            json += "\"spoolerEnqueued\":" + String(PrintSpooler::getJobsEnqueued()) + ",";
             json += "\"jobs\":" + String(Logger::getPrintJobs()) + ",";
             json += "\"rx\":" + String(Logger::getBytesReceived()) + ",";
             json += "\"tx\":" + String(Logger::getBytesSent());
@@ -178,33 +218,49 @@ public:
         });
 
         server->on("/api/testprint", HTTP_POST, []() {
-            Logger::log("WEB_CONSOLE", "Enviando etiqueta de prueba ZPL nativa al puerto USB...");
+            Logger::log("WEB_CONSOLE", "Generando etiqueta de prueba ZPL v2.0 para el Spooler en RAM/PSRAM...");
             
             const char* testZpl = 
                 "^XA\r\n"
                 "^PW600\r\n"
                 "^LL400\r\n"
                 "^FO50,50^GB500,300,4^FS\r\n"
-                "^FO80,80^A0N,40,40^FDProyecto Skunk - OK^FS\r\n"
-                "^FO80,140^A0N,25,25^FDESP32-S3 USB Host PrintServer^FS\r\n"
-                "^FO80,180^A0N,20,20^FDPuerto TCP RAW: 9100^FS\r\n"
-                "^FO80,220^BY2,2,80^BCN,80,Y,N,N^FD1234567890^FS\r\n"
+                "^FO80,80^A0N,40,40^FDSkunk v2.0 - Industrial^FS\r\n"
+                "^FO80,135^A0N,24,24^FDSpooler RAM Anticolision OK^FS\r\n"
+                "^FO80,170^A0N,22,22^FDLectura Bidireccional ~HS Activa^FS\r\n"
+                "^FO80,215^BY2,2,80^BCN,80,Y,N,N^FD9876543210^FS\r\n"
                 "^XZ\r\n";
 
             size_t len = strlen(testZpl);
-            size_t written = UsbPrinterHost::writeRawBytes((const uint8_t*)testZpl, len);
+            bool ok = PrintSpooler::enqueueJob((const uint8_t*)testZpl, len);
             
-            if (written == len) {
-                Logger::log("WEB_CONSOLE", "¡Etiqueta de prueba enviada exitosamente al USB!");
-                server->send(200, "text/plain", "Etiqueta ZPL enviada correctamente al USB (" + String(written) + " bytes)");
+            if (ok) {
+                server->send(200, "text/plain", "Etiqueta ZPL enviada al Spooler en RAM exitosamente (" + String(len) + " bytes)");
             } else {
-                Logger::log("WEB_CONSOLE", "ERROR: Falló el envío al USB.");
-                server->send(500, "text/plain", "Error enviando al USB. Verifica la conexión.");
+                server->send(500, "text/plain", "Error: Spooler lleno o impresora en estado crítico.");
             }
         });
 
+        server->on("/api/togglealert", HTTP_POST, []() {
+            bool nextState = !UsbPrinterHost::getIsPaperOut();
+            UsbPrinterHost::setSimulatedAlert(nextState, false);
+            String msg = nextState ? "⚠️ Simulación activa: FALTA DE PAPEL en Zebra" : "✅ Simulación desactivada: Impresora NORMAL";
+            server->send(200, "text/plain", msg);
+        });
+
+        server->on("/api/testtelegram", HTTP_POST, []() {
+            Logger::log("WEB_CONSOLE", "Enviando mensaje de prueba a Telegram...");
+            NotificationManager::sendTelegramAlert("🦨 SKUNK v2.0: Mensaje de prueba del sistema de alertas IoT del servidor de impresión.");
+            server->send(200, "text/plain", "Notificación enviada al bot de Telegram configurado.");
+        });
+
+        server->on("/api/resetwifi", HTTP_POST, []() {
+            server->send(200, "text/plain", "Reiniciando en modo Portal Cautivo AP...");
+            WiFiManagerSkunk::resetCredentialsAndRestart();
+        });
+
         server->begin();
-        Logger::logf("WEB_CONSOLE", "Servidor Web de diagnóstico Skunk activo en puerto %d", WEB_CONSOLE_PORT);
+        Logger::logf("WEB_CONSOLE", "Consola Web Skunk v2.0 (Industrial) lista en puerto %d", WEB_CONSOLE_PORT);
     }
 
     static void handleClient() {
