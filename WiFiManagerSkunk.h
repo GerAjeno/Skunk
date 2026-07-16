@@ -11,6 +11,7 @@
 #include "Logger.h"
 #include "StatusIndicators.h"
 #include "NotificationManager.h"
+#include "SkunkIcon.h"
 
 class WiFiManagerSkunk {
 private:
@@ -22,24 +23,51 @@ private:
     static void setupPortalUi() {
         apServer = new WebServer(80);
 
+        apServer->on("/logo.png", HTTP_GET, []() {
+            apServer->sendHeader("Cache-Control", "public, max-age=86400");
+            apServer->send_P(200, "image/png", SKUNK_ICON_PNG, SKUNK_ICON_PNG_LEN);
+        });
+        apServer->on("/favicon.ico", HTTP_GET, []() {
+            apServer->sendHeader("Cache-Control", "public, max-age=86400");
+            apServer->send_P(200, "image/png", SKUNK_ICON_PNG, SKUNK_ICON_PNG_LEN);
+        });
+        apServer->on("/apple-touch-icon.png", HTTP_GET, []() {
+            apServer->sendHeader("Cache-Control", "public, max-age=86400");
+            apServer->send_P(200, "image/png", SKUNK_ICON_PNG, SKUNK_ICON_PNG_LEN);
+        });
+
         apServer->on("/", HTTP_GET, []() {
             String html = R"rawliteral(
 <!DOCTYPE html><html lang="es"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Portal Cautivo - Skunk Setup</title>
+<title>Portal Cautivo - Skunk AMOLED Setup</title>
+<link rel="icon" type="image/png" href="/logo.png">
+<link rel="apple-touch-icon" href="/logo.png">
+<meta name="theme-color" content="#000000">
 <style>
-body { background: #0f172a; color: #f8fafc; font-family: sans-serif; padding: 20px; display:flex; justify-content:center; }
-.card { background: #1e293b; padding: 25px; border-radius: 12px; max-width: 450px; width: 100%; box-shadow: 0 10px 25px rgba(0,0,0,0.5); }
-h2 { color: #3b82f6; margin-bottom: 20px; }
-label { display: block; margin-top: 15px; font-size: 0.9rem; color: #94a3b8; }
-input, select { width: 100%; padding: 12px; margin-top: 6px; border-radius: 8px; border: 1px solid #334155; background: #0f172a; color: white; }
-button { width: 100%; background: #10b981; color: white; border: none; padding: 14px; margin-top: 25px; border-radius: 8px; font-weight: bold; cursor: pointer; }
-button:hover { background: #059669; }
+body { background: #000000; color: #f8fafc; font-family: 'Segoe UI', system-ui, -apple-system, sans-serif; padding: 20px; display:flex; justify-content:center; align-items:center; min-height:90vh; }
+.card { background: #0b0f19; padding: 30px; border-radius: 16px; max-width: 480px; width: 100%; border: 1px solid #1e293b; box-shadow: 0 15px 35px rgba(0,0,0,0.9); }
+.header { display: flex; align-items: center; gap: 15px; margin-bottom: 24px; border-bottom: 1px solid #1e293b; padding-bottom: 18px; }
+.logo { width: 56px; height: 56px; border-radius: 12px; border: 2px solid #3b82f6; box-shadow: 0 0 15px rgba(59,130,246,0.35); object-fit: cover; }
+h2 { color: #38bdf8; font-size: 1.35rem; font-weight: 800; }
+.sub { font-size: 0.8rem; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.05em; }
+label { display: block; margin-top: 16px; font-size: 0.88rem; font-weight:600; color: #cbd5e1; }
+input { width: 100%; padding: 13px; margin-top: 6px; border-radius: 10px; border: 1px solid #334155; background: #05070c; color: white; font-size: 0.95rem; }
+input:focus { border-color: #3b82f6; outline: none; box-shadow: 0 0 10px rgba(59,130,246,0.3); }
+button { width: 100%; background: #10b981; color: #000000; border: none; padding: 15px; margin-top: 28px; border-radius: 10px; font-weight: 800; font-size: 1rem; cursor: pointer; box-shadow: 0 0 15px rgba(16,185,129,0.35); transition: all 0.2s; }
+button:hover { background: #059669; color: white; box-shadow: 0 0 20px rgba(16,185,129,0.5); }
+.note { font-size: 0.82rem; color: #64748b; margin-top: 20px; text-align: center; }
 </style></head>
 <body><div class="card">
-<h2>🦨 Skunk PrintServer - Configuración Wi-Fi</h2>
-<p style="font-size:0.85rem; color:#cbd5e1;">Conéctate a la red de tu almacén para habilitar la impresión desde los dispositivos Android.</p>
+<div class="header">
+    <img src="/logo.png" alt="Skunk Icon" class="logo">
+    <div>
+        <h2>🦨 Skunk PrintServer</h2>
+        <div class="sub">Configuración Wi-Fi (AMOLED)</div>
+    </div>
+</div>
+<p style="font-size:0.88rem; color:#cbd5e1; line-height:1.5;">Conecta el módulo ESP32-S3 a la red local de tu almacén para habilitar la impresión inalámbrica desde teléfonos Android.</p>
 <form action="/save" method="POST">
-<label>Nombre de Red (SSID):</label>
+<label>Nombre de Red Wi-Fi (SSID):</label>
 <input type="text" name="ssid" required placeholder="Ej. Mi_Red_Almacen">
 <label>Contraseña Wi-Fi:</label>
 <input type="password" name="password" placeholder="Contraseña de red">
@@ -47,8 +75,9 @@ button:hover { background: #059669; }
 <input type="text" name="tg_token" placeholder="123456789:ABCdefGHI...">
 <label>Chat ID Telegram (Opcional):</label>
 <input type="text" name="tg_chatid" placeholder="-100123456789">
-<button type="submit">💾 Guardar Configuración y Reiniciar</button>
+<button type="submit">💾 Guardar y Conectar</button>
 </form>
+<div class="note">Proyecto Skunk v2.0 • Modo AMOLED True Black (#000000)</div>
 </div></body></html>
             )rawliteral";
             apServer->send(200, "text/html; charset=utf-8", html);
@@ -70,8 +99,10 @@ button:hover { background: #059669; }
                 NotificationManager::saveConfig(tgToken, tgChat, true);
             }
 
-            String resp = "<html><body style='background:#0f172a;color:white;font-family:sans-serif;text-align:center;padding:50px;'>";
-            resp += "<h2>✅ Configuración Guardada</h2><p>El ESP32 se está reiniciando para conectarse a: <b>" + newSsid + "</b></p></body></html>";
+            String resp = "<html><head><meta name='theme-color' content='#000000'><link rel='icon' href='/logo.png'></head><body style='background:#000000;color:white;font-family:sans-serif;display:flex;justify-content:center;align-items:center;min-height:90vh;'>";
+            resp += "<div style='background:#0b0f19;padding:40px;border-radius:16px;border:1px solid #1e293b;text-align:center;'>";
+            resp += "<img src='/logo.png' style='width:64px;height:64px;border-radius:12px;margin-bottom:20px;'>";
+            resp += "<h2 style='color:#38bdf8;'>✅ Configuración Guardada</h2><p style='color:#cbd5e1;margin-top:10px;'>El módulo Skunk se está reiniciando para conectar a:<br><b>" + newSsid + "</b></p></div></body></html>";
             apServer->send(200, "text/html; charset=utf-8", resp);
 
             delay(1500);
@@ -136,7 +167,7 @@ public:
             dnsServer.start(DNS_PORT, "*", apIP);
             setupPortalUi();
 
-            Logger::log("WIFI", "📡 Portal Cautivo activo en SSID: '" + String(AP_PORTAL_SSID) + "' -> IP: http://192.168.4.1/");
+            Logger::log("WIFI", "📡 Portal Cautivo AMOLED activo en SSID: '" + String(AP_PORTAL_SSID) + "' -> IP: http://192.168.4.1/");
         }
     }
 

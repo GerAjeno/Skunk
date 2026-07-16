@@ -7,10 +7,13 @@ Este proyecto transforma un módulo **ESP32-S3** en un servidor de impresión de
 
 ## 🌟 Novedades e Innovaciones en la versión 2.0 Industrial
 
-1. **🔍 Lectura Bidireccional Inteligente (`~HS` Host Status ZPL)**: El ESP32 consulta en segundo plano el estado de los sensores internos de la Zebra. Detecta instantáneamente **falta de papel / etiquetas agotadas (`Paper Out`)**, **tapa del cabezal térmico abierta (`Head Open`)** o desconexión del cable USB.
-2. **🌐 Portal Cautivo Wi-Fi con Memoria NVS (Zero-Code Setup)**: Si el router cambia de clave o mueves la impresora a otro almacén, el ESP32 levanta automáticamente la red Wi-Fi `Skunk-Setup-Zebra`. Te conectas con tu celular a `http://192.168.4.1/`, seleccionas tu Wi-Fi, guardas y ¡listo!
-3. **🚦 Micro-Cola de Impresión (Spooler RAM/PSRAM) Anticolisión**: Si dos o más celulares Android imprimen exactamente al mismo tiempo o si la impresora se queda sin papel en medio de una orden, los trabajos se encolan ordenadamente en la memoria de alta velocidad del módulo de 16MB sin rechazar conexiones ni perder datos.
-4. **🔔 Alertas IoT por Telegram & LED Neopixel WS2812**: 
+1. **🎨 Modo Oscuro AMOLED True Black (`#000000`) & Icono Skunk Incrustado**:
+   * Interfaz web rediseñada bajo estándares **AMOLED True Black (`#000000`)** para máximo contraste en pantallas OLED de teléfonos y ahorro de energía.
+   * **Icono Skunk (`Skunk_Logo.png` / `SkunkIcon.h`) integrado en la memoria Flash (PROGMEM)**: El ESP32 sirve nativamente el icono en `/logo.png`, `/favicon.ico` y `/apple-touch-icon.png`. Al guardar el panel en la pantalla de inicio de Android o al abrirlo en Chrome, el logo oficial de Skunk luce perfecto y nítido.
+2. **🔍 Lectura Bidireccional Inteligente (`~HS` Host Status ZPL)**: El ESP32 consulta en segundo plano el estado de los sensores internos de la Zebra. Detecta instantáneamente **falta de papel / etiquetas agotadas (`Paper Out`)**, **tapa del cabezal térmico abierta (`Head Open`)** o desconexión del cable USB.
+3. **🌐 Portal Cautivo Wi-Fi con Memoria NVS (Zero-Code Setup)**: Si el router cambia de clave o mueves la impresora a otro almacén, el ESP32 levanta automáticamente la red Wi-Fi `Skunk-Setup-Zebra`. Te conectas con tu celular a `http://192.168.4.1/`, seleccionas tu Wi-Fi en el portal AMOLED, guardas y ¡listo!
+4. **🚦 Micro-Cola de Impresión (Spooler RAM/PSRAM) Anticolisión**: Si dos o más celulares Android imprimen exactamente al mismo tiempo o si la impresora se queda sin papel en medio de una orden, los trabajos se encolan ordenadamente en la memoria de alta velocidad del módulo de 16MB sin rechazar conexiones ni perder datos.
+5. **🔔 Alertas IoT por Telegram & LED Neopixel WS2812**: 
    * Envía notificaciones Push SSL/TLS a tu celular o al supervisor si una impresora se queda sin papel (`⚠️ ALERTA SKUNK: La impresora Zebra se ha quedado sin papel`).
    * Iluminación de estado en el LED RGB de la placa (🟢 Verde = OK, 🔵 Azul = Imprimiendo, 🟡 Amarillo = Modo Portal Cautivo, 🔴 Rojo Parpadeante = Falta de papel).
 
@@ -22,13 +25,15 @@ Este proyecto transforma un módulo **ESP32-S3** en un servidor de impresión de
 | :--- | :--- |
 | **`Skunk.ino`** | Sketch principal. Orquesta los motores del Spooler, Portal Cautivo, USB Host y Telegram. |
 | **`Config.h`** | Parámetros por defecto de red, pines USB OTG (`DP=20, DM=19`), LED Neopixel (`PIN=48`) y capacidad de cola. |
-| **`WiFiManagerSkunk.h`** | Motor del Portal Cautivo NVS (`http://192.168.4.1/`) y auto-reconexión. |
+| **`SkunkIcon.h`** | **[NUEVO]** Arreglo en memoria Flash (`PROGMEM`) con el icono oficial de Skunk en formato PNG optimizado. |
+| **`Skunk_Logo.png`** | **[NUEVO]** Archivo gráfico maestro de alta resolución de Skunk en el repositorio. |
+| **`WiFiManagerSkunk.h`** | Motor del Portal Cautivo NVS (`http://192.168.4.1/`) y auto-reconexión (UI AMOLED). |
 | **`PrintSpooler.h`** | Micro-cola de impresión y seguro anticolisión en memoria PSRAM / RAM. |
 | **`UsbPrinterHost.h`** | Controlador USB OTG con sensor bidireccional ZPL (`~HS`). |
 | **`NotificationManager.h`** | Cliente SSL/TLS para disparar alertas inmediatas a Telegram Bot API. |
 | **`StatusIndicators.h`** | Animaciones LED RGB Neopixel WS2812 y alertas acústicas. |
 | **`RawTcpServer.h`** | Servidor JetDirect en puerto `9100` conectado al Spooler. |
-| **`WebConsole.h`** | Panel web de diagnóstico industrial, botones de simulación y monitoreo circular cada 2s (`http://<ip-esp32>/`). |
+| **`WebConsole.h`** | Panel web AMOLED industrial, botones de simulación y monitoreo circular cada 2s (`http://<ip-esp32>/`). |
 | **`Logger.h`** | Bitácora en RAM en tiempo real. |
 
 ---

@@ -9,6 +9,7 @@
 #include "PrintSpooler.h"
 #include "WiFiManagerSkunk.h"
 #include "NotificationManager.h"
+#include "SkunkIcon.h"
 
 class WebConsole {
 private:
@@ -21,53 +22,97 @@ private:
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Skunk Industrial v2.0 - Consola de Diagnóstico</title>
+    <title>Skunk Industrial v2.0 - Consola AMOLED</title>
+    <link rel="icon" type="image/png" href="/logo.png">
+    <link rel="apple-touch-icon" href="/logo.png">
+    <meta name="theme-color" content="#000000">
     <style>
         :root {
-            --bg-color: #0f172a;
-            --card-bg: #1e293b;
+            --bg-color: #000000;         /* AMOLED True Black */
+            --card-bg: #0b0f19;          /* Deep Carbon / OLED contrast */
+            --card-border: #1e293b;
             --text-color: #f8fafc;
-            --accent-color: #3b82f6;
+            --text-muted: #94a3b8;
+            --accent-blue: #3b82f6;
+            --accent-glow: rgba(59, 130, 246, 0.35);
             --success-color: #10b981;
+            --success-glow: rgba(16, 185, 129, 0.35);
             --danger-color: #ef4444;
+            --danger-glow: rgba(239, 68, 68, 0.4);
             --warning-color: #f59e0b;
-            --border-color: #334155;
-            --log-bg: #0b0f19;
+            --log-bg: #05070c;
         }
         * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', system-ui, -apple-system, sans-serif; }
-        body { background-color: var(--bg-color); color: var(--text-color); padding: 20px; line-height: 1.5; }
-        .container { max-width: 1150px; margin: 0 auto; }
-        header { display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid var(--border-color); padding-bottom: 15px; margin-bottom: 25px; }
-        h1 { font-size: 1.6rem; color: var(--accent-color); display: flex; align-items: center; gap: 10px; }
-        .status-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 15px; margin-bottom: 25px; }
-        .card { background-color: var(--card-bg); border: 1px solid var(--border-color); border-radius: 10px; padding: 18px; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.3); }
-        .card h3 { font-size: 0.85rem; text-transform: uppercase; letter-spacing: 0.05em; color: #94a3b8; margin-bottom: 8px; }
-        .card .value { font-size: 1.3rem; font-weight: 700; }
-        .badge { display: inline-block; padding: 4px 10px; border-radius: 9999px; font-size: 0.8rem; font-weight: 600; }
-        .badge.online { background-color: rgba(16, 185, 129, 0.2); color: var(--success-color); border: 1px solid var(--success-color); }
-        .badge.offline { background-color: rgba(239, 68, 68, 0.2); color: var(--danger-color); border: 1px solid var(--danger-color); }
-        .badge.warning { background-color: rgba(245, 158, 11, 0.2); color: var(--warning-color); border: 1px solid var(--warning-color); }
-        .actions { display: flex; gap: 12px; margin-bottom: 25px; flex-wrap: wrap; }
-        button { background-color: var(--accent-color); color: white; border: none; padding: 12px 18px; border-radius: 8px; font-weight: 600; cursor: pointer; transition: background 0.2s, transform 0.1s; display: flex; align-items: center; gap: 8px; font-size: 0.9rem; }
-        button:hover { background-color: #2563eb; }
-        button:active { transform: scale(0.98); }
-        button.test-btn { background-color: var(--success-color); }
-        button.test-btn:hover { background-color: #059669; }
-        button.alert-btn { background-color: var(--warning-color); color: #0f172a; }
-        button.alert-btn:hover { background-color: #d97706; color: white; }
-        button.danger-btn { background-color: var(--danger-color); }
-        button.danger-btn:hover { background-color: #dc2626; }
-        .log-section { background-color: var(--card-bg); border: 1px solid var(--border-color); border-radius: 10px; padding: 20px; }
-        .log-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
-        pre#logbox { background-color: var(--log-bg); color: #38bdf8; padding: 15px; border-radius: 8px; font-family: 'Consolas', 'Monaco', monospace; font-size: 0.88rem; height: 380px; overflow-y: auto; white-space: pre-wrap; word-break: break-all; border: 1px solid #1e293b; }
-        .footer { text-align: center; margin-top: 30px; font-size: 0.8rem; color: #64748b; }
+        body { background-color: var(--bg-color); color: var(--text-color); padding: 20px; line-height: 1.5; min-height: 100vh; }
+        .container { max-width: 1180px; margin: 0 auto; }
+        
+        header.skunk-header { 
+            display: flex; justify-content: space-between; align-items: center; 
+            background: linear-gradient(145deg, #0f172a, #0b0f19);
+            border: 1px solid var(--card-border);
+            border-radius: 16px; padding: 16px 24px; margin-bottom: 24px;
+            box-shadow: 0 8px 30px rgba(0, 0, 0, 0.9);
+        }
+        .brand { display: flex; align-items: center; gap: 16px; }
+        .app-icon { width: 56px; height: 56px; border-radius: 12px; border: 2px solid #3b82f6; box-shadow: 0 0 15px var(--accent-glow); object-fit: cover; }
+        h1 { font-size: 1.6rem; font-weight: 800; background: linear-gradient(90deg, #60a5fa, #38bdf8); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+        .subtitle { font-size: 0.82rem; color: var(--text-muted); font-weight: 500; letter-spacing: 0.05em; text-transform: uppercase; }
+        
+        .status-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 16px; margin-bottom: 24px; }
+        .card { 
+            background-color: var(--card-bg); border: 1px solid var(--card-border); border-radius: 14px; 
+            padding: 20px; box-shadow: 0 6px 20px rgba(0, 0, 0, 0.8); transition: transform 0.2s, border-color 0.2s;
+        }
+        .card:hover { border-color: var(--accent-blue); transform: translateY(-2px); }
+        .card h3 { font-size: 0.82rem; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-muted); margin-bottom: 10px; }
+        .card .value { font-size: 1.35rem; font-weight: 700; display: flex; align-items: center; gap: 10px; }
+        
+        .badge { display: inline-flex; align-items: center; gap: 6px; padding: 5px 12px; border-radius: 9999px; font-size: 0.82rem; font-weight: 700; }
+        .badge.online { background-color: rgba(16, 185, 129, 0.15); color: var(--success-color); border: 1px solid var(--success-color); box-shadow: 0 0 10px var(--success-glow); }
+        .badge.offline { background-color: rgba(239, 68, 68, 0.15); color: var(--danger-color); border: 1px solid var(--danger-color); box-shadow: 0 0 10px var(--danger-glow); }
+        .badge.warning { background-color: rgba(245, 158, 11, 0.15); color: var(--warning-color); border: 1px solid var(--warning-color); }
+        
+        .actions { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 14px; margin-bottom: 24px; }
+        button { 
+            background-color: #1e293b; color: white; border: 1px solid var(--card-border); 
+            padding: 14px 18px; border-radius: 12px; font-weight: 600; cursor: pointer; 
+            transition: all 0.2s ease; display: flex; align-items: center; justify-content: center; gap: 10px; font-size: 0.9rem;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.5);
+        }
+        button:hover { background-color: #334155; border-color: var(--accent-blue); box-shadow: 0 0 15px var(--accent-glow); }
+        button:active { transform: scale(0.97); }
+        button.test-btn { background-color: rgba(16, 185, 129, 0.2); border-color: var(--success-color); color: #34d399; }
+        button.test-btn:hover { background-color: var(--success-color); color: #000000; box-shadow: 0 0 18px var(--success-glow); }
+        button.alert-btn { background-color: rgba(245, 158, 11, 0.2); border-color: var(--warning-color); color: #fbbf24; }
+        button.alert-btn:hover { background-color: var(--warning-color); color: #000000; }
+        button.danger-btn { background-color: rgba(239, 68, 68, 0.2); border-color: var(--danger-color); color: #f87171; }
+        button.danger-btn:hover { background-color: var(--danger-color); color: #ffffff; box-shadow: 0 0 18px var(--danger-glow); }
+        
+        .log-section { background-color: var(--card-bg); border: 1px solid var(--card-border); border-radius: 14px; padding: 22px; box-shadow: 0 8px 25px rgba(0, 0, 0, 0.9); }
+        .log-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; }
+        pre#logbox { 
+            background-color: var(--log-bg); color: #38bdf8; padding: 18px; border-radius: 10px; 
+            font-family: 'Consolas', 'Monaco', monospace; font-size: 0.88rem; height: 390px; 
+            overflow-y: auto; white-space: pre-wrap; word-break: break-all; border: 1px solid #1e293b; 
+        }
+        pre#logbox::-webkit-scrollbar { width: 8px; }
+        pre#logbox::-webkit-scrollbar-track { background: var(--log-bg); }
+        pre#logbox::-webkit-scrollbar-thumb { background: #334155; border-radius: 4px; }
+        
+        .footer { text-align: center; margin-top: 35px; font-size: 0.82rem; color: #475569; padding-bottom: 20px; }
     </style>
 </head>
 <body>
     <div class="container">
-        <header>
-            <h1>🦨 Skunk v2.0 - Zebra GC420t PrintServer & Spooler RAM</h1>
-            <div id="connection-status"><span class="badge online">🔴 En vivo</span></div>
+        <header class="skunk-header">
+            <div class="brand">
+                <img src="/logo.png" alt="Skunk Logo" class="app-icon">
+                <div>
+                    <h1>Skunk v2.0 <span style="font-size:1rem; color:#10b981;">● AMOLED</span></h1>
+                    <div class="subtitle">Zebra GC420t • USB Host & Spooler RAM</div>
+                </div>
+            </div>
+            <div id="connection-status"><span class="badge online">🔴 En vivo (9100/80)</span></div>
         </header>
 
         <div class="status-grid">
@@ -98,14 +143,14 @@ private:
 
         <div class="log-section">
             <div class="log-header">
-                <h3>📜 Bitácora del Sistema y Depuración Industrial</h3>
-                <span style="font-size: 0.8rem; color: #94a3b8;">Refresco automático cada 2s</span>
+                <h3>📜 Bitácora de Sistema Industrial (Modo Oscuro AMOLED)</h3>
+                <span style="font-size: 0.8rem; color: #64748b;">Refresco automático cada 2s</span>
             </div>
-            <pre id="logbox">Cargando bitácora...</pre>
+            <pre id="logbox">Cargando bitácora del servidor Skunk...</pre>
         </div>
 
         <div class="footer">
-            Proyecto Skunk v2.0 • Firmware ESP32-S3 16MB • Spooler Anticolisión + Alertas IoT Telegram + LED RGB
+            Proyecto Skunk v2.0 • Modo AMOLED True Black (#000000) • ESP32-S3 16MB • Zebra GC420t
         </div>
     </div>
 
@@ -116,9 +161,9 @@ private:
                 .then(data => {
                     const usbDiv = document.getElementById('usb-detailed');
                     if (data.paperOut) {
-                        usbDiv.innerHTML = `<span class="badge offline">⚠️ FALTA PAPEL</span> <div style="font-size:0.8rem;margin-top:4px;color:#cbd5e1;">${data.printerInfo}</div>`;
+                        usbDiv.innerHTML = `<span class="badge offline">⚠️ FALTA PAPEL</span> <div style="font-size:0.8rem;margin-top:4px;color:#94a3b8;">${data.printerInfo}</div>`;
                     } else if (data.usbConnected) {
-                        usbDiv.innerHTML = `<span class="badge online">✅ Lista para Imprimir</span> <div style="font-size:0.8rem;margin-top:4px;color:#cbd5e1;">${data.printerInfo}</div>`;
+                        usbDiv.innerHTML = `<span class="badge online">✅ Lista para Imprimir</span> <div style="font-size:0.8rem;margin-top:4px;color:#94a3b8;">${data.printerInfo}</div>`;
                     } else {
                         usbDiv.innerHTML = `<span class="badge offline">❌ Desconectada</span>`;
                     }
@@ -195,6 +240,20 @@ public:
     static void init() {
         server = new WebServer(WEB_CONSOLE_PORT);
 
+        // Sirviendo iconos de la app Skunk
+        server->on("/logo.png", HTTP_GET, []() {
+            server->sendHeader("Cache-Control", "public, max-age=86400");
+            server->send_P(200, "image/png", SKUNK_ICON_PNG, SKUNK_ICON_PNG_LEN);
+        });
+        server->on("/favicon.ico", HTTP_GET, []() {
+            server->sendHeader("Cache-Control", "public, max-age=86400");
+            server->send_P(200, "image/png", SKUNK_ICON_PNG, SKUNK_ICON_PNG_LEN);
+        });
+        server->on("/apple-touch-icon.png", HTTP_GET, []() {
+            server->sendHeader("Cache-Control", "public, max-age=86400");
+            server->send_P(200, "image/png", SKUNK_ICON_PNG, SKUNK_ICON_PNG_LEN);
+        });
+
         server->on("/", HTTP_GET, []() {
             server->send(200, "text/html; charset=utf-8", getIndexHtml());
         });
@@ -260,7 +319,7 @@ public:
         });
 
         server->begin();
-        Logger::logf("WEB_CONSOLE", "Consola Web Skunk v2.0 (Industrial) lista en puerto %d", WEB_CONSOLE_PORT);
+        Logger::logf("WEB_CONSOLE", "Consola Web AMOLED Skunk v2.0 lista en puerto %d", WEB_CONSOLE_PORT);
     }
 
     static void handleClient() {
